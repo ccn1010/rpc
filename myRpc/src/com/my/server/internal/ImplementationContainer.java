@@ -8,6 +8,10 @@ public class ImplementationContainer{
     private final Map<Class< ? >, Object> implByClass = new LinkedHashMap<Class< ? >, Object>();
 
     public <T> void addImplementation( Class<T> clazz, T impl ){
+    	if( clazz == null ) throw new NullPointerException( "interfaceClazz is null" );
+        if( impl == null ) throw new NullPointerException( "implementation is null" );
+        if( !clazz.isInterface() ) throw new IllegalArgumentException( "no interface" );
+        if( this.containsImplementation( clazz ) ) throw new IllegalArgumentException( "duplicate implementation" );
         implByClass.put( clazz, impl );
     }
 
@@ -32,5 +36,20 @@ public class ImplementationContainer{
         }
         return null;
     }
+    
+    public void removeImplementation(Class< ? > clazz){
+    	implByClass.remove(clazz);
+    }
+    
+    public void removeImplementation(String fqClassName){
+    	for( Class< ? > clazz : implByClass.keySet() ){
+            if( clazz.getName().equals( fqClassName ) ){
+            	implByClass.remove(clazz);
+            	return;
+            }
+        }
+    }
+    
+    
 
 }

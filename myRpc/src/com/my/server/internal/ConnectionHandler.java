@@ -6,17 +6,18 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.net.Socket;
+import java.util.concurrent.ExecutorService;
 
 import com.my.shared.InvokeMethodRequest;
 import com.my.shared.Request;
 import com.my.shared.Response;
 
-public class SingleConnectionHandler {
+public class ConnectionHandler {
 	private final Socket socket;
 	private final ImplementationContainer container;
 	private Thread handlingThread;
 
-	public SingleConnectionHandler(Socket newSocket,
+	public ConnectionHandler(Socket newSocket,
 			ImplementationContainer container) {
 		this.socket = newSocket;
 		this.container = container;
@@ -74,4 +75,16 @@ public class SingleConnectionHandler {
 	public void stop(){
         handlingThread.interrupt();
     }
+
+	public Runnable createIncomingHandler() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	public static ConnectionHandler create(Socket connection,
+			ExecutorService requestHandlerPool,
+			ImplementationContainer implContainer) {
+		// TODO Auto-generated method stub
+		return null;
+	}
 }

@@ -4,17 +4,24 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
+import java.util.logging.Logger;
 
 import com.my.exception.SimpleRpcException;
+import com.my.server.Server;
 
 public class ServerSocketManager {
+	private static int DEFAULT_NUM_HANDLERS = 20;
+	private static int DEFAULT_CONCURRENT_REQUESTS = 1;
+	
+	private final static Logger logger = Logger.getLogger(Server.class.getName());
+	private final ServerSocket serverSocket;
+	
 	private final int port;
 	private final NewSocketCallback newSocketCallback;
 	// 为什么这里不是final,而上面是呢?? 因为final的需要一开始就初始化, 加上final也是为了保证这个, 跟js的setTimeout(func, 0)似的
 	private Thread acceptingThread;
-	private ServerSocket serverSocket;
 
-	public ServerSocketManager(int port, NewSocketCallback newSocketCallback) {
+	public ServerSocketManager(ServerSocket serverSocket, int port, NewSocketCallback newSocketCallback) {
 		this.port = port;
 		this.newSocketCallback = newSocketCallback;
 	}
