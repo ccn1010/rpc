@@ -1,11 +1,11 @@
-package com.my.server.internal;
+package com.my.server;
 
-import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class ImplementationContainer{
 
-    private final Map<Class< ? >, Object> implByClass = new LinkedHashMap<Class< ? >, Object>();
+    private final Map<Class< ? >, Object> implByClass = new ConcurrentHashMap<Class< ? >, Object>();
 
     public <T> void addImplementation( Class<T> clazz, T impl ){
     	if( clazz == null ) throw new NullPointerException( "interfaceClazz is null" );

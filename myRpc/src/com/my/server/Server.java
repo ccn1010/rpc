@@ -12,9 +12,6 @@ import java.util.concurrent.Executors;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import com.my.server.internal.ConnectionHandler;
-import com.my.server.internal.ImplementationContainer;
-
 public class Server extends Thread {
 	private static int DEFAULT_NUM_HANDLERS = 20;
 	private static int DEFAULT_CONCURRENT_REQUESTS = 1;
@@ -40,6 +37,10 @@ public class Server extends Thread {
 			serverSocket = new ServerSocket();
 			serverSocket.setReuseAddress(true);
 			serverSocket.bind(address);
+			/**
+			 * 注意做incoming/request/outgoing处理的三个线程池都是在Server初始化的时候实例化的
+			 * 这保证了三个线程池只在Server初始化的时候生成一次
+			 */
 			ExecutorService incomingHandlerPool =
                     Executors.newFixedThreadPool(maxNumHandlers);
             ExecutorService requestHandlerPool =
@@ -74,14 +75,13 @@ public class Server extends Thread {
 			
 		final ConnectionHandler handler = ConnectionHandler.create(connection, requestHandlerPool, implContainer);
 		activeConnections.add(handler);
-		
 		final Runnable realIncomingHandler = handler.createIncomingHandler();
 		
 		class HelperHandler implements Runnable{
 			@Override
 			public void run() {
+				activeConnections.add(handler);
 				try{
-					activeConnections.add(handler);
 					realIncomingHandler.run();
 				}finally{
 					activeConnections.remove(handler);
@@ -90,8 +90,22 @@ public class Server extends Thread {
 		}
 		
 		incomingHandlerPool.execute(new HelperHandler());
-		outgoingHandlerPool.execute(handler.createIncomingHandler());
+		outgoingHandlerPool.execute(handler.createOutgoingHandler());
 	}
+	
+	@Override
+	public synchronized void interrupt() {
+		super.interrupt();
+		for(ConnectionHandler handler : activeConnections){
+			handler.closeConnection();
+		}
+		
+		try {
+			serverSocket.close();
+		} catch (IOException e) {
+			logger.log(Level.WARNING, "Error closing socket.", e);
+		}
+	};
 	
 	@Override
 	public void run(){
@@ -101,7 +115,7 @@ public class Server extends Thread {
 				Socket connection = this.serverSocket.accept();
 				handleConnection(connection);
 			} catch (IOException e) {
-				logger.log(Level.WARNING, "Could not establish connection.");
+				logger.log(Level.WARNING, "Could not establish connection.", e);
 			}
 		}
 		logger.info("Server exits.");

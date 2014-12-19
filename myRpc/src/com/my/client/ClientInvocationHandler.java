@@ -4,12 +4,14 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
-import com.my.exception.SimpleRpcRemoteException;
 import com.my.shared.InvokeMethodRequest;
 import com.my.shared.InvokeMethodResponse;
 
 public class ClientInvocationHandler implements InvocationHandler {
+	private static final Logger logger = Logger.getLogger(ClientInvocationHandler.class.getName());
 	private final ConnectionHandler connectionHandler;
 	private final Class<?> interfaceClazz;
 
@@ -28,7 +30,8 @@ public class ClientInvocationHandler implements InvocationHandler {
 		case OK:
 			return response.getReturnValue();
 		case EXCEPTION:
-			throw new SimpleRpcRemoteException( response.getExceptionToString() );
+			logger.log(Level.WARNING, response.getExceptionToString());
+			throw new Exception( response.getExceptionToString() );
 		default:
 			throw new RuntimeException();
 		}
