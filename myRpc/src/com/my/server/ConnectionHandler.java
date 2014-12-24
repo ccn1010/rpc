@@ -6,8 +6,7 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
 import com.my.shared.Request;
@@ -15,16 +14,16 @@ import com.my.shared.Response;
 
 public class ConnectionHandler {
 	private final Socket connection;
-	private final BlockingQueue<Response> dispatcherOutput;
 	private final RequestDispatcher dispatcher;
+	private final ExecutorService outgoingHandlerPool;
 	
 	private class IncomingHandler implements Runnable{
 		@Override
 		public void run(){
 			try{
-				BufferedInputStream input = new BufferedInputStream(connection.getInputStream());
+				BufferedInputStream input = new BufferedInputStream(ConnectionHandler.this.connection.getInputStream());
 				
-				while(!connection.isClosed()){
+				while(!ConnectionHandler.this.connection.isClosed()){
 					ObjectInputStream ois = new ObjectInputStream(input);
 					Request request;
 					request = (Request)ois.readObject();
@@ -32,8 +31,13 @@ public class ConnectionHandler {
 						tryCloseConnection();
 					}else{
 						try{
-							dispatcher.handleRequest(request);
+							Response response = ConnectionHandler.this.dispatcher.handleRequest(request);
+							OutgoingHandler outgoingHandler = new OutgoingHandler(response);
+							ConnectionHandler.this.outgoingHandlerPool.execute(outgoingHandler);
 						}catch(InterruptedException e){
+							tryCloseConnection();
+                            return;
+						} catch (ExecutionException e) {
 							tryCloseConnection();
                             return;
 						}
@@ -47,39 +51,38 @@ public class ConnectionHandler {
 		}
 	}
 	
-	private class OutgoingHandler implements Runnable{
+	public class OutgoingHandler implements Runnable{
+		private final Response response;
+		public OutgoingHandler(Response response) {
+			this.response =  response;
+		}
+		
 		@Override
 		public void run(){
 			try {
 				BufferedOutputStream output = new BufferedOutputStream(
-						connection.getOutputStream());
-				while(!connection.isClosed()){
-					ObjectOutputStream oos = new ObjectOutputStream(output);
-					oos.writeObject(dispatcherOutput.take());
-					oos.flush();
-				}
+						ConnectionHandler.this.connection.getOutputStream());
+				ObjectOutputStream oos = new ObjectOutputStream(output);
+				oos.writeObject(response);
+				oos.flush();
 			} catch (IOException e) {
-				tryCloseConnection();
-			} catch(InterruptedException e){
 				tryCloseConnection();
 			}
 		}
 	}
 
-	ConnectionHandler(Socket connection, RequestDispatcher dispatcher,
-			BlockingQueue<Response> dispatcherOutput) {
+	ConnectionHandler(Socket connection, RequestDispatcher dispatcher, ExecutorService outgoingHandlerPool) {
 		this.connection = connection;
 		this.dispatcher = dispatcher;
-		this.dispatcherOutput = dispatcherOutput;
+		this.outgoingHandlerPool = outgoingHandlerPool;
 	}
 
 	public static ConnectionHandler create(Socket connection,
 			ExecutorService requestHandlerPool,
+			ExecutorService outgoingHandlerPool,
 			ImplementationContainer implContainer) {
-		BlockingQueue<Response> dispatcherOutput =
-				new ArrayBlockingQueue<Response>(RequestDispatcher.DEFAULT_QUEUE_SIZE);
-		RequestDispatcher dispatcher = new RequestDispatcher(requestHandlerPool, dispatcherOutput, implContainer);
-		return new ConnectionHandler(connection, dispatcher, dispatcherOutput); 
+		RequestDispatcher dispatcher = new RequestDispatcher(requestHandlerPool, implContainer);
+		return new ConnectionHandler(connection, dispatcher, outgoingHandlerPool);
 	}
 
 	public void closeConnection() {
@@ -96,9 +99,5 @@ public class ConnectionHandler {
 	
 	public Runnable createIncomingHandler() {
 		return new IncomingHandler();
-	}
-
-	public Runnable createOutgoingHandler() {
-		return new OutgoingHandler();
 	}
 }

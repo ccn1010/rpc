@@ -1,7 +1,8 @@
 package com.my.server;
 
 import java.lang.reflect.Method;
-import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -14,27 +15,23 @@ import com.my.shared.Response;
 
 public class RequestDispatcher {
 	private static final Logger logger = Logger.getLogger(RequestDispatcher.class.getName());
-	public static final int DEFAULT_QUEUE_SIZE = 5;
-	private final BlockingQueue<Response> output;
 	private final ImplementationContainer container;
 	/** A pool that can be shared among all dispatchers. */
 	// 本来我以为pool可以在dispatcher里面生成的, 但是那样太浪费了, 如果在Server初始化的时候
 	// 生成线程池, 然后传给给个模块进行使用, 那么线程池的作用会大的多, 而不是各个模块下的每个子任务来生成线程池
-	private final ExecutorService pool;
+	private final ExecutorService requestHandlerPool;
 	
 	private interface ArrayUtil{
 		String toString(Object[] arr);
 	}
 	
-	private static class RequestHandler implements Runnable{
+	private static class RequestHandler implements Callable<Response>{
 		private final InvokeMethodRequest request;
-		private final BlockingQueue<Response> output;
 		private final ImplementationContainer container;
 		
-		public RequestHandler(Request request, BlockingQueue<Response> output,
+		public RequestHandler(Request request,
 				ImplementationContainer container){
 			this.request = (InvokeMethodRequest) request;
-			this.output = output;
 			this.container = container;
 		}
 		
@@ -79,22 +76,20 @@ public class RequestDispatcher {
 		}
 		
 		@Override
-		public void run(){
+		public Response call(){
 			Response response = null;
 			try{
 				response = internalRun();
 			}catch(Exception e){
 				response = createExceptionResponse(e);
 			}
-			output.add(response);
+			return response;
 		}
 	}
 	
 	public RequestDispatcher(ExecutorService requestHandlerPool,
-			BlockingQueue<Response> dispatcherOutput,
 			ImplementationContainer implContainer) {
-		this.pool = requestHandlerPool;
-		this.output = dispatcherOutput;
+		this.requestHandlerPool = requestHandlerPool;
 		this.container = implContainer;
 	}
 
@@ -103,10 +98,11 @@ public class RequestDispatcher {
 	 * 函数里捕获该异常的情况在故意抛出的
 	 * @param request
 	 * @throws InterruptedException
+	 * @throws ExecutionException 
 	 */
-	public void handleRequest (Request request) throws InterruptedException {
-		RequestHandler handler = new RequestHandler(request, output, container);
-		pool.execute(handler);
+	public Response handleRequest (Request request) throws InterruptedException, ExecutionException {
+		RequestHandler handler = new RequestHandler(request, container);
+		return requestHandlerPool.submit(handler).get();
 	}
 
 }

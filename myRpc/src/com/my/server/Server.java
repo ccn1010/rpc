@@ -73,7 +73,7 @@ public class Server extends Thread {
 			return;
 		}
 			
-		final ConnectionHandler handler = ConnectionHandler.create(connection, requestHandlerPool, implContainer);
+		final ConnectionHandler handler = ConnectionHandler.create(connection, requestHandlerPool, outgoingHandlerPool, implContainer);
 		activeConnections.add(handler);
 		final Runnable realIncomingHandler = handler.createIncomingHandler();
 		
@@ -90,7 +90,6 @@ public class Server extends Thread {
 		}
 		
 		incomingHandlerPool.execute(new HelperHandler());
-		outgoingHandlerPool.execute(handler.createOutgoingHandler());
 	}
 	
 	@Override
