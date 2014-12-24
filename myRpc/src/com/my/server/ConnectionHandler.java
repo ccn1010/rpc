@@ -25,8 +25,7 @@ public class ConnectionHandler {
 				
 				while(!ConnectionHandler.this.connection.isClosed()){
 					ObjectInputStream ois = new ObjectInputStream(input);
-					Request request;
-					request = (Request)ois.readObject();
+					Request request = (Request)ois.readObject();
 					if(request == null){
 						tryCloseConnection();
 					}else{

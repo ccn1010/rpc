@@ -14,7 +14,7 @@ import java.util.logging.Logger;
 
 public class Server extends Thread {
 	private static int DEFAULT_NUM_HANDLERS = 20;
-	private static int DEFAULT_CONCURRENT_REQUESTS = 1;
+	private static int DEFAULT_CONCURRENT_REQUESTS = 5;
 	
 	private final static Logger logger = Logger.getLogger(Server.class.getName());
 	private final ServerSocket serverSocket;
