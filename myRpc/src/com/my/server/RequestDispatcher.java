@@ -1,7 +1,6 @@
 package com.my.server;
 
 import java.lang.reflect.Method;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.logging.Level;
@@ -25,14 +24,17 @@ public class RequestDispatcher {
 		String toString(Object[] arr);
 	}
 	
-	private static class RequestHandler implements Callable<Response>{
+	private class RequestHandler implements Runnable{
 		private final InvokeMethodRequest request;
 		private final ImplementationContainer container;
+		private final ConnectionHandler connectionHandler;
 		
 		public RequestHandler(Request request,
-				ImplementationContainer container){
+				ImplementationContainer container,
+				ConnectionHandler connectionHandler){
 			this.request = (InvokeMethodRequest) request;
 			this.container = container;
+			this.connectionHandler = connectionHandler;
 		}
 		
 		public Response internalRun() throws Exception {
@@ -76,14 +78,15 @@ public class RequestDispatcher {
 		}
 		
 		@Override
-		public Response call(){
+		public void run(){
 			Response response = null;
 			try{
 				response = internalRun();
 			}catch(Exception e){
 				response = createExceptionResponse(e);
 			}
-			return response;
+			Runnable run = connectionHandler.createOutgoingHandler(response);
+			connectionHandler.getOutgoingHandlerPool().execute(run);
 		}
 	}
 	
@@ -100,9 +103,9 @@ public class RequestDispatcher {
 	 * @throws InterruptedException
 	 * @throws ExecutionException 
 	 */
-	public Response handleRequest (Request request) throws InterruptedException, ExecutionException {
-		RequestHandler handler = new RequestHandler(request, container);
-		return requestHandlerPool.submit(handler).get();
+	public void handleRequest (Request request, ConnectionHandler connectionHandler) throws InterruptedException, ExecutionException {
+		RequestHandler handler = new RequestHandler(request, container, connectionHandler);
+		requestHandlerPool.execute(handler);
 	}
 
 }

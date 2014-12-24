@@ -31,9 +31,7 @@ public class ConnectionHandler {
 						tryCloseConnection();
 					}else{
 						try{
-							Response response = ConnectionHandler.this.dispatcher.handleRequest(request);
-							OutgoingHandler outgoingHandler = new OutgoingHandler(response);
-							ConnectionHandler.this.outgoingHandlerPool.execute(outgoingHandler);
+							ConnectionHandler.this.dispatcher.handleRequest(request, ConnectionHandler.this);
 						}catch(InterruptedException e){
 							tryCloseConnection();
                             return;
@@ -51,7 +49,7 @@ public class ConnectionHandler {
 		}
 	}
 	
-	public class OutgoingHandler implements Runnable{
+	private class OutgoingHandler implements Runnable{
 		private final Response response;
 		public OutgoingHandler(Response response) {
 			this.response =  response;
@@ -99,5 +97,13 @@ public class ConnectionHandler {
 	
 	public Runnable createIncomingHandler() {
 		return new IncomingHandler();
+	}
+	
+	public Runnable createOutgoingHandler(Response response) {
+		return new OutgoingHandler(response);
+	}
+	
+	public ExecutorService getOutgoingHandlerPool(){
+		return this.outgoingHandlerPool;
 	}
 }
