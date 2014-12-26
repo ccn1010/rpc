@@ -27,14 +27,14 @@ public class RequestDispatcher {
 	private class RequestHandler implements Runnable{
 		private final InvokeMethodRequest request;
 		private final ImplementationContainer container;
-		private final ConnectionHandler connectionHandler;
+		private final ResponseCallbackHandler responseCallbackHandler;
 		
 		public RequestHandler(Request request,
 				ImplementationContainer container,
-				ConnectionHandler connectionHandler){
+				ResponseCallbackHandler responseCallbackHandler){
 			this.request = (InvokeMethodRequest) request;
 			this.container = container;
-			this.connectionHandler = connectionHandler;
+			this.responseCallbackHandler = responseCallbackHandler;
 		}
 		
 		public Response internalRun() throws Exception {
@@ -85,8 +85,7 @@ public class RequestDispatcher {
 			}catch(Exception e){
 				response = createExceptionResponse(e);
 			}
-			Runnable run = connectionHandler.createOutgoingHandler(response);
-			connectionHandler.getOutgoingHandlerPool().execute(run);
+			responseCallbackHandler.handle(response);
 		}
 	}
 	
@@ -104,8 +103,16 @@ public class RequestDispatcher {
 	 * @throws ExecutionException 
 	 */
 	public void handleRequest (Request request, ConnectionHandler connectionHandler) throws InterruptedException, ExecutionException {
-		RequestHandler handler = new RequestHandler(request, container, connectionHandler);
+		// 回调函数
+		ResponseCallbackHandler rsh = (res) -> {
+			Runnable run = connectionHandler.createOutgoingHandler(res);
+			connectionHandler.getOutgoingHandlerPool().execute(run);
+		};
+		RequestHandler handler = new RequestHandler(request, container, rsh);
 		requestHandlerPool.execute(handler);
 	}
 
+	private interface ResponseCallbackHandler{
+		void handle(Response response);
+	}
 }

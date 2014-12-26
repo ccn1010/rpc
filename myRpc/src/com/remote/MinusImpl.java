@@ -1,10 +1,6 @@
 package com.remote;
 
-import java.io.Serializable;
-
-public class MinusImpl implements Minus, Serializable {
-
-	private static final long serialVersionUID = 1L;
+public class MinusImpl implements Minus {
 
 	@Override
 	public int method(int num0, int num1) {
